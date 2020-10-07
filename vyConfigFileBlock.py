@@ -11,30 +11,33 @@ class VyConfigFileBlock():
 
     def peekmatch(self, line):
         iMarkers = self.indentLevelMarkers[0]
-        keys = iMarkers.keys()
-        matches = { None: 0, 'NotNone': 0 }
+        matches = { 'attr=None': 0, 'attr!=None': 0 }
         if type(iMarkers) == dict:
-            if None in keys:
-                matches[None] += 1
-            notNoneKeys = set(keys) - {None}
-            for key in notNoneKeys:
-                pattern = r'(%s)\s*:\s*(%s)' % key
+            for key in iMarkers.keys():
+                attr = key[0]
+                if attr == None:
+                    pattern = r'(%s)' % key[1]
+                    attrLabel = 'attr=None'
+                else:
+                    pattern = r'(%s)\s*:\s*(%s)' % key
+                    attrLabel = 'attr!=None'
                 matchObj = re.match(pattern, line.txt)
                 if matchObj:
-                    matches['NotNone'] += 1
+                    matches[attrLabel] += 1
         elif type(iMarkers) == list:
             for iMarker in iMarkers:
                 submatches = iMarker().peekmatch(line.txt)
-                matches[None] += submatches[None]
-                matches['NotNone'] += submatches['NotNone']
-        assert(matches[None] <= 1)
-        assert(matches['NotNone'] <= 1)
+                matches['attr=None'] += submatches['attr=None']
+                matches['attr!=None'] += submatches['attr!=None']
+        assert(matches['attr=None'] <= 1)
+        assert(matches['attr!=None'] <= 1)
         return matches
 
     def parse(self, lines, startIdx=0):
         ilm = self.indentLevelMarkers
         topLevelConsumed = False
         idx = startIdx - 1
+        attrLabels = ['attr=None', 'attr!=None']
         while True:
             idx += 1
             if idx >= len(lines): break
@@ -55,10 +58,12 @@ class VyConfigFileBlock():
             iMarkers = ilm[relativeLineIndentLevel]
             if type(iMarkers) == dict:
                 keys = iMarkers.keys()
-                notNoneKeys = set(keys) - {None}
-                # try matching notNoneKeys
+                attrNoneKeys = []
                 matchObj = None
-                for key in notNoneKeys:
+                for key in keys:
+                    if key[0] == None:
+                        attrNoneKeys.append(key)
+                        continue
                     pattern = r'(?P<attr>%s)\s*:\s*(?P<val>%s)' % key
                     matchObj = re.match(pattern, line.txt)
                     if matchObj:
@@ -75,38 +80,41 @@ class VyConfigFileBlock():
                         break
                 # if no match and if None is a key
                 if not matchObj:
-                    if None in keys:
-                        attr = iMarkers[None]['target']
-                        val = line.txt
-                        key = None
-                        if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
-                            if attr not in self.attribs:
-                                self.attribs[attr] = []
-                            self.attribs[attr].append(val)
-                        else:
-                            self.attribs[attr] = val
-                    else:
+                    for key in attrNoneKeys: 
+                        attr = iMarkers[key]['target']
+                        pattern = r'(?P<val>%s)' % key[1]
+                        matchObj = re.match(pattern, line.txt)
+                        if matchObj:
+                            val = line.txt
+                            if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
+                                if attr not in self.attribs:
+                                    self.attribs[attr] = []
+                                self.attribs[attr].append(val)
+                            else:
+                                self.attribs[attr] = val
+                            break
+                    if not matchObj:
                         raise Exception('No matching case found at line %d' % (line.idx + 1))
             elif type(iMarkers) == list:
                 if len(iMarkers) == 0:
                     raise Exception('List found empty. Put some subblock classes here')
-                matches = { None: [], 'NotNone': []}
+                matchClasses = { 'attr=None': [], 'attr!=None': []}
                 for iMarker in iMarkers:
                     submatches = iMarker().peekmatch(line)
-                    if submatches[None]:
-                        matches[None].append(iMarker)
-                    if submatches['NotNone']:
-                        matches['NotNone'].append(iMarker)
-                assert(len(matches[None]) <= 1)
-                assert(len(matches['NotNone']) <= 1)
-                matched = None
-                if matches['NotNone']:
-                    matched = matches['NotNone'][0]
-                elif matches[None]:
-                    matched = matches[None][0]
-                if matched == None:
+                    for attrLabel in attrLabels:
+                        if submatches[attrLabel]:
+                            matchClasses[attrLabel].append(iMarker)
+                matchedClass = None
+                for attrLabel in attrLabels:
+                    assert(len(matchClasses[attrLabel]) <= 1)
+
+                if matchClasses['attr!=None']:
+                    matchedClass = matchClasses['attr!=None'][0]
+                elif matchClasses['attr=None']:
+                    matchedClass = matchClasses['attr=None'][0]
+                if matchedClass == None:
                     raise Exception("Line doesn't match any possibility")
-                subblock = matched()
+                subblock = matchedClass() # subblock is object of matchedClass
                 subblock.indentLevel = line.indentLevel
                 idx = subblock.parse(lines, startIdx=idx) - 1 # because we had added +1 in the while loop
                 self.subblocks.append(subblock)
