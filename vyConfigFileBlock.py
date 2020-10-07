@@ -18,7 +18,7 @@ class VyConfigFileBlock():
                 matches[None] += 1
             notNoneKeys = set(keys) - {None}
             for key in notNoneKeys:
-                pattern = r'(%s)\s*:\s*(%s)' % tuple(key.split(':'))
+                pattern = r'(%s)\s*:\s*(%s)' % key
                 matchObj = re.match(pattern, line.txt)
                 if matchObj:
                     matches['NotNone'] += 1
@@ -59,13 +59,13 @@ class VyConfigFileBlock():
                 # try matching notNoneKeys
                 matchObj = None
                 for key in notNoneKeys:
-                    pattern = r'(%s)\s*:\s*(%s)' % tuple(key.split(':'))
+                    pattern = r'(?P<attr>%s)\s*:\s*(?P<val>%s)' % key
                     matchObj = re.match(pattern, line.txt)
                     if matchObj:
                         if 'target' in iMarkers[key] and iMarkers[key]['target'] == None:
                             break
-                        attr = matchObj.group(1)
-                        val = matchObj.group(2)
+                        attr = matchObj.group('attr')
+                        val = matchObj.group('val')
                         if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
                             if attr not in self.attribs:
                                 self.attribs[attr] = []
