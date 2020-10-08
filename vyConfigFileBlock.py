@@ -48,7 +48,6 @@ class VyConfigFileBlock():
         ilm = self.indentLevelMarkers
         topLevelConsumed = False
         idx = startIdx - 1
-        attrLabels = ['attr=None', 'attr!=None']
         while True:
             idx += 1
             if idx >= len(lines): break
@@ -68,18 +67,12 @@ class VyConfigFileBlock():
                 raise Exception(f"Unsupported indent level '{relativeLineIndentLevel}'. Expected indent levels: {ilm.keys()}")
             iMarkers = ilm[relativeLineIndentLevel]
             if type(iMarkers) == dict:
-                keys = iMarkers.keys()
-                attrNoneKeys = []
-                notNoneAttributeMatched = False
+                # attr!=None gets priority
+                keys = sorted(iMarkers.keys(), key=lambda key: 1 if key[0] == None else 0)
                 for key in keys:
                     matchObj, attr, val, attrLabel = self.getKeyMatchPattern(line, key, iMarkers)
                     if not matchObj:
                         continue
-                    if attrLabel == 'attr=None':
-                        attrNoneKeys.append((key, attr, val))
-                        continue
-                    # attr!=None gets priority
-                    notNoneAttributeMatched = True
                     if 'target' in iMarkers[key] and iMarkers[key]['target'] == None:
                         break
                     if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
@@ -90,29 +83,20 @@ class VyConfigFileBlock():
                         self.attribs[attr] = val
                     break
                 # if no match and if None is a key
-                if not notNoneAttributeMatched:
-                    if not attrNoneKeys:
-                        raise Exception('No matching case found at line %d' % (line.idx + 1))
-                    for key, attr, val in attrNoneKeys: 
-                        if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
-                            if attr not in self.attribs:
-                                self.attribs[attr] = []
-                            self.attribs[attr].append(val)
-                        else:
-                            self.attribs[attr] = val
-                        break
+                if not matchObj:
+                    raise Exception('No matching case found at line %d' % (line.idx + 1))
             elif type(iMarkers) == list:
                 if len(iMarkers) == 0:
                     raise Exception('List found empty. Put some subblock classes here')
                 matchClasses = { 'attr=None': [], 'attr!=None': []}
                 for iMarker in iMarkers:
                     submatches = iMarker().peekmatch(line)
-                    for attrLabel in attrLabels:
+                    for attrLabel in ['attr=None', 'attr!=None']:
                         if submatches[attrLabel]:
                             matchClasses[attrLabel].append(iMarker)
                 matchedClass = None
-                for attrLabel in attrLabels:
-                    assert(len(matchClasses[attrLabel]) <= 1)
+                assert(len(matchClasses['attr=None']) <= 1)
+                assert(len(matchClasses['attr!=None']) <= 1)
 
                 if matchClasses['attr!=None']:
                     matchedClass = matchClasses['attr!=None'][0]

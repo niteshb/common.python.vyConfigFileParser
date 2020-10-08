@@ -1,0 +1,7 @@
+os
+    family: windows
+    version: 10
+processor
+    company: intel
+    family: pentium
+    clock-speed: 180 MHz
