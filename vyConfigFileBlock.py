@@ -9,21 +9,32 @@ class VyConfigFileBlock():
     def __repr__(self):
         return repr((self.attribs, self.subblocks))
 
+    def getKeyMatchPattern(self, line, key, iMarkers):
+        attr = key[0]
+        if attr is None:
+            pattern = r'^(?P<val>%s)$' % key[1]
+            attrLabel = 'attr=None'
+        else:
+            pattern = r'^(?P<attr>%s)\s*:\s*(?P<val>%s)$' % key
+            attrLabel = 'attr!=None'
+        matchObj = re.match(pattern, line.txt)
+        if matchObj:
+            if attr is None:
+                attr = iMarkers[key]['target']
+            else:
+                attr = matchObj.group('attr')
+            val = matchObj.group('val')
+        else:
+            val = None
+        return (matchObj, attr, val, attrLabel)
+
     def peekmatch(self, line):
         iMarkers = self.indentLevelMarkers[0]
         matches = { 'attr=None': 0, 'attr!=None': 0 }
         if type(iMarkers) == dict:
             for key in iMarkers.keys():
-                attr = key[0]
-                if attr == None:
-                    pattern = r'(%s)' % key[1]
-                    attrLabel = 'attr=None'
-                else:
-                    pattern = r'(%s)\s*:\s*(%s)' % key
-                    attrLabel = 'attr!=None'
-                matchObj = re.match(pattern, line.txt)
-                if matchObj:
-                    matches[attrLabel] += 1
+                matchObj, attr, val, attrLabel = self.getKeyMatchPattern(line, key, iMarkers)
+                matches[attrLabel] += 1 if matchObj else 0
         elif type(iMarkers) == list:
             for iMarker in iMarkers:
                 submatches = iMarker().peekmatch(line.txt)
@@ -59,18 +70,30 @@ class VyConfigFileBlock():
             if type(iMarkers) == dict:
                 keys = iMarkers.keys()
                 attrNoneKeys = []
-                matchObj = None
+                notNoneAttributeMatched = False
                 for key in keys:
-                    if key[0] == None:
-                        attrNoneKeys.append(key)
+                    matchObj, attr, val, attrLabel = self.getKeyMatchPattern(line, key, iMarkers)
+                    if not matchObj:
                         continue
-                    pattern = r'(?P<attr>%s)\s*:\s*(?P<val>%s)' % key
-                    matchObj = re.match(pattern, line.txt)
-                    if matchObj:
-                        if 'target' in iMarkers[key] and iMarkers[key]['target'] == None:
-                            break
-                        attr = matchObj.group('attr')
-                        val = matchObj.group('val')
+                    if attrLabel == 'attr=None':
+                        attrNoneKeys.append((key, attr, val))
+                        continue
+                    # attr!=None gets priority
+                    notNoneAttributeMatched = True
+                    if 'target' in iMarkers[key] and iMarkers[key]['target'] == None:
+                        break
+                    if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
+                        if attr not in self.attribs:
+                            self.attribs[attr] = []
+                        self.attribs[attr].append(val)
+                    else:
+                        self.attribs[attr] = val
+                    break
+                # if no match and if None is a key
+                if not notNoneAttributeMatched:
+                    if not attrNoneKeys:
+                        raise Exception('No matching case found at line %d' % (line.idx + 1))
+                    for key, attr, val in attrNoneKeys: 
                         if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
                             if attr not in self.attribs:
                                 self.attribs[attr] = []
@@ -78,23 +101,6 @@ class VyConfigFileBlock():
                         else:
                             self.attribs[attr] = val
                         break
-                # if no match and if None is a key
-                if not matchObj:
-                    for key in attrNoneKeys: 
-                        attr = iMarkers[key]['target']
-                        pattern = r'(?P<val>%s)' % key[1]
-                        matchObj = re.match(pattern, line.txt)
-                        if matchObj:
-                            val = line.txt
-                            if 'mode' in iMarkers[key] and iMarkers[key]['mode'] == 'append':
-                                if attr not in self.attribs:
-                                    self.attribs[attr] = []
-                                self.attribs[attr].append(val)
-                            else:
-                                self.attribs[attr] = val
-                            break
-                    if not matchObj:
-                        raise Exception('No matching case found at line %d' % (line.idx + 1))
             elif type(iMarkers) == list:
                 if len(iMarkers) == 0:
                     raise Exception('List found empty. Put some subblock classes here')
