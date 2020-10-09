@@ -33,7 +33,6 @@ class VyConfigFileBlock():
                 return True
             else:
                 return False
-        return super().__getattr__(attr)
 
     def traverse(self):
         self.traversalState = 'pre'
