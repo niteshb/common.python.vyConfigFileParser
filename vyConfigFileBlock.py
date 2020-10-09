@@ -6,6 +6,15 @@ class VyConfigFileBlock():
         self.indentLevel = 0
         self.attribs = {}
 
+    def postParse(self, parent=None, level=0):
+        """Run on root to set parent and level attributes
+        """
+        self.parent = parent
+        self.level = level
+        self.hasChildren = bool(len(self.subBlocks))
+        for subBlock in self.subBlocks:
+            subBlock.postParse(parent=self, level=level + 1)
+
     def __contains__(self, key):
         return key in self.attribs
 
