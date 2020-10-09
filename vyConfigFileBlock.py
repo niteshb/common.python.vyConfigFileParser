@@ -6,6 +6,15 @@ class VyConfigFileBlock():
         self.indentLevel = 0
         self.attribs = {}
 
+    def __contains__(self, key):
+        return key in self.attribs
+
+    def __getitem__(self, key):
+        return self.attribs[key]
+
+    def __setitem__(self, key, value):
+        self.attribs[key] = value
+
     def __repr__(self):
         return repr((self.attribs, self.subblocks))
 
