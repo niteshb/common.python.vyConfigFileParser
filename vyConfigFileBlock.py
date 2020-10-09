@@ -1,19 +1,19 @@
 import re
 
 class VyConfigFileBlock():
-    def __init__(self):
+    def __init__(self, parent=None, level=-1):
         self.subBlocks = []
         self.indentLevel = 0
         self.attribs = {}
-
-    def postParse(self, parent=None, level=0):
-        """Run on root to set parent and level attributes
-        """
         self.parent = parent
         self.level = level
-        self.hasChildren = bool(len(self.subBlocks))
-        for subBlock in self.subBlocks:
-            subBlock.postParse(parent=self, level=level + 1)
+
+    def addChildBlock(self, childBlock, idx=-1):
+        self.subBlocks.insert(idx, childBlock)
+        childBlock.parent = self
+        childBlock.level = self.level + 1
+        childBlock.hasChildren = bool(len(childBlock.subBlocks))
+        self.hasChildren = True
 
     def __contains__(self, key):
         return key in self.attribs
@@ -147,11 +147,12 @@ class VyConfigFileBlock():
                     matchedClass = matchClasses['attr=None'][0]
                 if matchedClass == None:
                     raise Exception("Line doesn't match any possibility")
-                subBlock = matchedClass() # subBlock is object of matchedClass
+                subBlock = matchedClass(parent=self, level=self.level + 1) # subBlock is object of matchedClass
                 subBlock.indentLevel = line.indentLevel
                 idx = subBlock.parse(lines, startIdx=idx) - 1 # because we had added +1 in the while loop
                 self.subBlocks.append(subBlock)
             else:
                 raise Exception("FATAL ERROR: Unexpected type. 'dict' or 'list' type was expected.")
+        self.hasChildren = bool(len(self.subBlocks))
         return idx # this is the length processed
 
