@@ -2,7 +2,7 @@ import re
 
 class VyConfigFileBlock():
     def __init__(self):
-        self.subblocks = []
+        self.subBlocks = []
         self.indentLevel = 0
         self.attribs = {}
 
@@ -16,7 +16,7 @@ class VyConfigFileBlock():
         self.attribs[key] = value
 
     def __repr__(self):
-        return repr((self.attribs, self.subblocks))
+        return repr((self.attribs, self.subBlocks))
 
     def getKeyMatchPattern(self, line, key, iMarkers):
         attr = key[0]
@@ -96,7 +96,7 @@ class VyConfigFileBlock():
                     raise Exception('No matching case found at line %d' % (line.idx + 1))
             elif type(iMarkers) == list:
                 if len(iMarkers) == 0:
-                    raise Exception('List found empty. Put some subblock classes here')
+                    raise Exception('List found empty. Put some subBlock classes here')
                 matchClasses = { 'attr=None': [], 'attr!=None': []}
                 for iMarker in iMarkers:
                     submatches = iMarker().peekmatch(line)
@@ -113,10 +113,10 @@ class VyConfigFileBlock():
                     matchedClass = matchClasses['attr=None'][0]
                 if matchedClass == None:
                     raise Exception("Line doesn't match any possibility")
-                subblock = matchedClass() # subblock is object of matchedClass
-                subblock.indentLevel = line.indentLevel
-                idx = subblock.parse(lines, startIdx=idx) - 1 # because we had added +1 in the while loop
-                self.subblocks.append(subblock)
+                subBlock = matchedClass() # subBlock is object of matchedClass
+                subBlock.indentLevel = line.indentLevel
+                idx = subBlock.parse(lines, startIdx=idx) - 1 # because we had added +1 in the while loop
+                self.subBlocks.append(subBlock)
             else:
                 raise Exception("FATAL ERROR: Unexpected type. 'dict' or 'list' type was expected.")
         return idx # this is the length processed
