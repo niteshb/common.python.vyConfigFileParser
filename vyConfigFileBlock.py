@@ -18,6 +18,32 @@ class VyConfigFileBlock():
     def __repr__(self):
         return repr((self.attribs, self.subBlocks))
 
+    def __getattr__(self, attr):
+        if attr == 'firstchild':
+            if self.parent == None:
+                return True
+            elif self.parent.subBlocks[0] == self:
+                return True
+            else:
+                return False
+        elif attr == 'lastchild':
+            if self.parent == None:
+                return True
+            elif self.parent.subBlocks[-1] == self:
+                return True
+            else:
+                return False
+        return super().__getattr__(attr)
+
+    def traverse(self):
+        self.traversalState = 'pre'
+        yield self
+        for subBlock in self.subBlocks:
+            for _ in subBlock.traverse():
+                yield _
+        self.traversalState = 'post'
+        yield self
+
     def getKeyMatchPattern(self, line, key, iMarkers):
         attr = key[0]
         if attr is None:
