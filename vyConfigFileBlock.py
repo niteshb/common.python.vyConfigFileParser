@@ -1,19 +1,21 @@
 import re
+from vyTree import VyTreeNode
 
-class VyConfigFileBlock():
-    def __init__(self, parent=None, level=-1):
-        self.subBlocks = []
+class VyConfigFileBlock(VyTreeNode):
+    def __init__(self):
+        super().__init__()
         self.indentLevel = 0
         self.attribs = {}
-        self.parent = parent
-        self.level = level
 
-    def addChildBlock(self, childBlock, idx=-1):
-        self.subBlocks.insert(idx, childBlock)
-        childBlock.parent = self
-        childBlock.level = self.level + 1
-        childBlock.hasChildren = bool(len(childBlock.subBlocks))
-        self.hasChildren = True
+    @property
+    def subBlocks(self):
+        return self.childNodes
+
+    def appendChildBlock(self, childBlock):
+        self.appendChildNode(childBlock)
+
+    def insertChildBlock(self, idx, childBlock):
+        self.insertChildNode(idx, childBlock)
 
     def __contains__(self, key):
         return key in self.attribs
@@ -26,31 +28,6 @@ class VyConfigFileBlock():
 
     def __repr__(self):
         return repr((self.attribs, self.subBlocks))
-
-    def __getattr__(self, attr):
-        if attr == 'firstchild':
-            if self.parent == None:
-                return True
-            elif self.parent.subBlocks[0] == self:
-                return True
-            else:
-                return False
-        elif attr == 'lastchild':
-            if self.parent == None:
-                return True
-            elif self.parent.subBlocks[-1] == self:
-                return True
-            else:
-                return False
-
-    def traverse(self):
-        self.traversalState = 'pre'
-        yield self
-        for subBlock in self.subBlocks:
-            for _ in subBlock.traverse():
-                yield _
-        self.traversalState = 'post'
-        yield self
 
     def getKeyMatchPattern(self, line, key, iMarkers):
         attr = key[0]
@@ -147,12 +124,11 @@ class VyConfigFileBlock():
                     matchedClass = matchClasses['attr=None'][0]
                 if matchedClass == None:
                     raise Exception("Line doesn't match any possibility")
-                subBlock = matchedClass(parent=self, level=self.level + 1) # subBlock is object of matchedClass
+                subBlock = matchedClass() # subBlock is object of matchedClass
+                self.appendChildBlock(subBlock)
                 subBlock.indentLevel = line.indentLevel
                 idx = subBlock.parse(lines, startIdx=idx) - 1 # because we had added +1 in the while loop
-                self.subBlocks.append(subBlock)
             else:
                 raise Exception("FATAL ERROR: Unexpected type. 'dict' or 'list' type was expected.")
-        self.hasChildren = bool(len(self.subBlocks))
         return idx # this is the length processed
 
