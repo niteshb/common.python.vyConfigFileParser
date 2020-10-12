@@ -2,8 +2,8 @@ import re
 from vyTree import VyTreeLevelNode
 
 class VyConfigFileBlock(VyTreeLevelNode):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.indentLevel = 0
         self.attribs = {}
 

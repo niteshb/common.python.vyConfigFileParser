@@ -9,8 +9,7 @@ class VyConfigFile():
         self.preProcess()
 
     def parse(self, TopLevelBlockClass):
-        topBlock = TopLevelBlockClass()
-        topBlock._VyTreeLevelNode__level = -1
+        topBlock = TopLevelBlockClass(level=-1)
         topBlock.parse(self.lines)
         return topBlock
 
